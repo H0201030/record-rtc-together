@@ -17,29 +17,33 @@
         defaults = {
             enable: { video: true, audio: true },
             canvas_width: 320,
-            canvas_height: 240
+            canvas_height: 240,
+            audioWorkerPath: "/vendor/recorderWorker.js"
         };
 
-    function Recorder(options) {
+    function RecordRTC(options) {
         this.canvas = document.createElement('canvas');
         this.context = this.canvas.getContext('2d');
+        this.options = options;
         this.videoElem = options.videoElem;
         this.frames = [];
         this.mediaReady = false;
-        this.blob = null;
-        this.filetype = null;
-        this.dataURL = null;
+        this.videoBlob = null;
+        this.audioBlob = null;
+        this.videoDataURL = null;
+        this.audioDataURL = null;
         this.stream = null;
         this.audioContext = null;
         this.mediaStream = null;
+        this.audioRecorder = null;
 
         navigator.getUserMedia(options.enable || defaults.enable,
                                this.setMedia.bind(this),
                                this.onError.bind(this));
     }
 
-    Recorder.prototype = {
-        constructor: Recorder,
+    RecordRTC.prototype = {
+        constructor: RecordRTC,
         // set user media
         setMedia: function(mediaStream) {
             this.mediaReady = true;
@@ -52,28 +56,29 @@
             requestedAnimationFrame = requestAnimationFrame(this._drawVideoFrame.bind(this));
 
             this.context.drawImage(this.videoElem,
-                               0, 0, this.videoElem.width, this.videoElem.height,
+                               0, 0, this.videoElem.offsetWidth, this.videoElem.offsetHeight,
                                0, 0, this.canvas.width, this.canvas.height);
 
             this.frames.push(this.canvas.toDataURL('image/webp', 1));
         },
         // start video record
         startVideo: function() {
-            this.canvas.width = options.canvas_width || defaults.canvas_width;
-            this.cnavas.height = options.canvas_height || defaults.canvas_height;
+            this.canvas.width = this.options.canvas_width || defaults.canvas_width;
+            this.canvas.height = this.options.canvas_height || defaults.canvas_height;
+
+            // TODO select the min width/height btw canvas and videoElem
 
             this.frames = [];
 
-            requestedAnimationFrame = requestAnimationFrame(this.drawVideoFrame.bind(this));
+            requestedAnimationFrame = requestAnimationFrame(this._drawVideoFrame.bind(this));
         },
         // stop video record
-        stopVideo: function() {
+        stopVideo: function(callback) {
             cancelAnimationFrame(requestedAnimationFrame);
-
-            this.blob = Whammy.fromImageArray(frames, 1000 / 60);
-            this.fileType = 'webm';
-
-            this.setBlob(blob, callback);
+            // call whammy
+            this.videoBlob = Whammy.fromImageArray(this.frames, 1000 / 60);
+            // set blob
+            //this.setBlob(this.videoblob, callback, "video/webm");
             // clear frames
             this.frames = [];
         },
@@ -82,19 +87,33 @@
             this.audioContext = new AudioContext();
 
             this.mediaStream = this.audioContext.createMediaStreamSource(this.stream);
-            this.mediaStream.connect(audioContext.destination);
+            this.mediaStream.connect(this.audioContext.destination);
+
+            this.audioRecorder = new Recorder(this.mediaStream, {
+                workerPath: this.options.audioWorkerPath || defaults.audioWorkerPath
+            });
+
+            this.audioRecorder.record();
         },
         // stop audio record
-        stopAudio: function() {
+        stopAudio: function(callback) {
+            if (!this.audioRecorder) { return ; }
+
+            this.audioRecorder.stop();
+            this.audioRecorder.exportWAV(function(blob) {
+                this.audioBlob = blob;
+            }.bind(this));
         },
         // start record all
         start: function() {
+            if (!this.videoElem) { throw "No Video Element Found!"; }
+
             this.startVideo();
             this.startAudio();
         },
         // stop record all
-        stop: function(callback) {
-            this.stopVideo();
+        stop: function(videoCallback, audioCallback) {
+            this.stopVideo(videoCallback);
             this.stopAudio();
         },
         // on error
@@ -104,6 +123,6 @@
         }
     };
 
-    window.Recorder = Recorder;
+    window.RecordRTC = RecordRTC;
 
 })();
