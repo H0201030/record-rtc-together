@@ -12,7 +12,9 @@
         requestAnimationFrame = win.webkitRequestAnimationFrame || win.mozRequestAnimationFrame,
         cancelAnimationFrame = win.webkitCancelAnimationFrame || win.mozCancelAnimationFrame,
         URL = win.URL || win.webkitURL,
+        MediaStream = win.webkitMediaStream,
         AudioContext = win.webkitAudioContext,
+
     // defaults
         defaults = {
             enable: { video: true, audio: true },
@@ -33,9 +35,9 @@
         this.videoDataURL = null;
         this.audioDataURL = null;
         this.stream = null;
-        this.audioContext = null;
-        this.mediaStream = null;
+        this.audioStream = null;
         this.audioRecorder = null;
+        this.requestedAnimationFrame = null;
 
         navigator.getUserMedia(options.enable || defaults.enable,
                                this.setMedia.bind(this),
@@ -46,35 +48,50 @@
         constructor: RecordRTC,
         // set user media
         setMedia: function(mediaStream) {
+            // flag
             this.mediaReady = true;
-            // output to video elem
+            // set media stream and audio stream
             this.stream = mediaStream;
+            this.audioStream = new MediaStream(mediaStream.getAudioTracks());
+            // output to video elem
             this.videoElem.src = URL.createObjectURL(mediaStream);
         },
         // draw video frame
-        _drawVideoFrame: function() {
-            requestedAnimationFrame = requestAnimationFrame(this._drawVideoFrame.bind(this));
+        drawVideoFrame: function() {
+            this.requestedAnimationFrame = requestAnimationFrame(this.drawVideoFrame.bind(this));
 
             this.context.drawImage(this.videoElem,
-                               0, 0, this.videoElem.offsetWidth, this.videoElem.offsetHeight,
-                               0, 0, this.canvas.width, this.canvas.height);
+                               0, 0, this.v_width, this.v_height,
+                               0, 0, this.c_width, this.c_height);
 
             this.frames.push(this.canvas.toDataURL('image/webp', 1));
         },
         // start video record
         startVideo: function() {
-            this.canvas.width = this.options.canvas_width || defaults.canvas_width;
-            this.canvas.height = this.options.canvas_height || defaults.canvas_height;
+            console.log('started recording video frames');
+
+            // set canvas width, height
+            this.c_width = this.options.canvas_width || defaults.canvas_width;
+            this.c_height = this.options.canvas_height || defaults.canvas_height;
+            // set video width, height
+            this.v_width = this.options.video_width || this.videoElem.offsetWidth;
+            this.v_height = this.options.video_height || this.videoElem.offsetHeight;
 
             // TODO select the min width/height btw canvas and videoElem
 
+            this.canvas.width = this.c_width;
+            this.canvas.height = this.c_height;
+            this.videoElem.width = this.v_width;
+            this.videoElem.height = this.v_height;
+
             this.frames = [];
 
-            requestedAnimationFrame = requestAnimationFrame(this._drawVideoFrame.bind(this));
+            this.requestedAnimationFrame = requestAnimationFrame(this.drawVideoFrame.bind(this));
         },
         // stop video record
         stopVideo: function(callback) {
-            cancelAnimationFrame(requestedAnimationFrame);
+            console.log('stopped recording video frames');
+            cancelAnimationFrame(this.requestedAnimationFrame);
             // call whammy
             this.videoBlob = Whammy.fromImageArray(this.frames, 1000 / 60);
             // set blob
@@ -84,12 +101,12 @@
         },
         // start audio record
         startAudio: function() {
-            this.audioContext = new AudioContext();
+            var audioContext = new AudioContext(),
+                mediaStreamSource = audioContext.createMediaStreamSource(this.audioStream);
 
-            this.mediaStream = this.audioContext.createMediaStreamSource(this.stream);
-            this.mediaStream.connect(this.audioContext.destination);
+            mediaStreamSource.connect(audioContext.destination);
 
-            this.audioRecorder = new Recorder(this.mediaStream, {
+            this.audioRecorder = new Recorder(mediaStreamSource, {
                 workerPath: this.options.audioWorkerPath || defaults.audioWorkerPath
             });
 
@@ -99,14 +116,19 @@
         stopAudio: function(callback) {
             if (!this.audioRecorder) { return ; }
 
+            console.info('stopped recording audio frames');
+
             this.audioRecorder.stop();
             this.audioRecorder.exportWAV(function(blob) {
                 this.audioBlob = blob;
             }.bind(this));
+            // clear record
+            this.audioRecorder.clear();
         },
         // start record all
         start: function() {
             if (!this.videoElem) { throw "No Video Element Found!"; }
+            if (!this.mediaReady) { throw "Media is not ready!"; }
 
             this.startVideo();
             this.startAudio();
@@ -114,7 +136,7 @@
         // stop record all
         stop: function(videoCallback, audioCallback) {
             this.stopVideo(videoCallback);
-            this.stopAudio();
+            this.stopAudio(audioCallback);
         },
         // on error
         onError: function(err) {
