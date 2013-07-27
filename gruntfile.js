@@ -17,7 +17,7 @@ module.exports = function(grunt) {
             },
             dist: {
                 src: ['src/vendor/whammy.js',
-                      'src/vendor/recorder.js',
+                      'src/vendor/StereoRecorder.js',
                       'src/js/record-rtc.js'],
                 dest: 'dist/<%= pkg.name %>.js'
             }
