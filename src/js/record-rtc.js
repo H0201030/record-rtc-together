@@ -99,7 +99,7 @@
             this.videoElem.width = this.v_width;
             this.videoElem.height = this.v_height;
 
-            this.whammy = new Whammy.Video(10, 0.6);
+            this.whammy = new Whammy.Video(this.options.video_fps || defaults.video_fps, 0.6);
 
             this.lastVideoFrame = requestAnimationFrame(this.drawVideoFrame.bind(this));
         },
