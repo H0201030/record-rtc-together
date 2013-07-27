@@ -466,3 +466,356 @@ window.Whammy = (function(){
 		// expose methods of madness
 	}
 })();
+;// source code from: http://typedarray.org/wp-content/projects/WebAudioRecorder/script.js
+function StereoAudioRecorder(mediaStream, root) {
+    // variables
+    var leftchannel = [];
+    var rightchannel = [];
+    var recorder;
+    var recording = false;
+    var recordingLength = 0;
+    var volume;
+    var audioInput;
+    var sampleRate = 44100;
+    var audioContext;
+    var context;
+
+    this.record = function() {
+        recording = true;
+        // reset the buffers for the new recording
+        leftchannel.length = rightchannel.length = 0;
+        recordingLength = 0;
+    };
+
+    this.stop = function() {
+        // we stop recording
+        recording = false;
+
+        // we flat the left and right channels down
+        var leftBuffer = mergeBuffers(leftchannel, recordingLength);
+        var rightBuffer = mergeBuffers(rightchannel, recordingLength);
+        // we interleave both channels together
+        var interleaved = interleave(leftBuffer, rightBuffer);
+
+        // we create our wav file
+        var buffer = new ArrayBuffer(44 + interleaved.length * 2);
+        var view = new DataView(buffer);
+
+        // RIFF chunk descriptor
+        writeUTFBytes(view, 0, 'RIFF');
+        view.setUint32(4, 44 + interleaved.length * 2, true);
+        writeUTFBytes(view, 8, 'WAVE');
+        // FMT sub-chunk
+        writeUTFBytes(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        // stereo (2 channels)
+        view.setUint16(22, 2, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 4, true);
+        view.setUint16(32, 4, true);
+        view.setUint16(34, 16, true);
+        // data sub-chunk
+        writeUTFBytes(view, 36, 'data');
+        view.setUint32(40, interleaved.length * 2, true);
+
+        // write the PCM samples
+        var lng = interleaved.length;
+        var index = 44;
+        var volume = 1;
+        for (var i = 0; i < lng; i++) {
+            view.setInt16(index, interleaved[i] * (0x7FFF * volume), true);
+            index += 2;
+        }
+
+        // our final binary blob
+        var blob = new Blob([view], { type: 'audio/wav' });
+
+        root.ondataavailable(blob);
+    };
+
+    function interleave(leftChannel, rightChannel) {
+        var length = leftChannel.length + rightChannel.length;
+        var result = new Float32Array(length);
+
+        var inputIndex = 0;
+
+        for (var index = 0; index < length;) {
+            result[index++] = leftChannel[inputIndex];
+            result[index++] = rightChannel[inputIndex];
+            inputIndex++;
+        }
+        return result;
+    }
+
+    function mergeBuffers(channelBuffer, recordingLength) {
+        var result = new Float32Array(recordingLength);
+        var offset = 0;
+        var lng = channelBuffer.length;
+        for (var i = 0; i < lng; i++) {
+            var buffer = channelBuffer[i];
+            result.set(buffer, offset);
+            offset += buffer.length;
+        }
+        return result;
+    }
+
+    function writeUTFBytes(view, offset, string) {
+        var lng = string.length;
+        for (var i = 0; i < lng; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    }
+
+    // creates the audio context
+    audioContext = window.AudioContext || window.webkitAudioContext;
+    context = new audioContext();
+
+    // creates a gain node
+    volume = context.createGain();
+
+    // creates an audio node from the microphone incoming stream
+    audioInput = context.createMediaStreamSource(mediaStream);
+
+    // connect the stream to the gain node
+    audioInput.connect(volume);
+
+    /* From the spec: This value controls how frequently the audioprocess event is 
+    dispatched and how many sample-frames need to be processed each call. 
+    Lower values for buffer size will result in a lower (better) latency. 
+    Higher values will be necessary to avoid audio breakup and glitches */
+    var bufferSize = 2048;
+    recorder = context.createJavaScriptNode(bufferSize, 2, 2);
+
+    recorder.onaudioprocess = function(e) {
+        if (!recording) return;
+        var left = e.inputBuffer.getChannelData(0);
+        var right = e.inputBuffer.getChannelData(1);
+        // we clone the samples
+        leftchannel.push(new Float32Array(left));
+        rightchannel.push(new Float32Array(right));
+        recordingLength += bufferSize;
+    }; // we connect the recorder
+    volume.connect(recorder);
+    recorder.connect(context.destination);
+}
+;// Wang Zhuochun
+// 20/Jul/2013 10:04 PM
+
+(function() {
+
+    navigator.getUserMedia = navigator.getUserMedia ||
+                             navigator.webkitGetUserMedia ||
+                             navigator.mozGetUserMedia ||
+                             navigator.msGetUserMedia;
+
+    var win = window,
+        requestAnimationFrame = win.webkitRequestAnimationFrame || win.mozRequestAnimationFrame,
+        cancelAnimationFrame = win.webkitCancelAnimationFrame || win.mozCancelAnimationFrame,
+        URL = win.URL || win.webkitURL,
+        MediaStream = win.webkitMediaStream,
+        AudioContext = win.webkitAudioContext || window.mozAudioContext,
+
+    // defaults
+        defaults = {
+            enable: { video: true, audio: true },
+            canvas_width: 320,
+            canvas_height: 240,
+            video_fps: 10
+        };
+
+    function RecordRTC(options) {
+        // canvas
+        this.canvas = document.createElement('canvas');
+        this.context = this.canvas.getContext('2d');
+        // store options
+        this.options = options;
+        // elem
+        this.videoElem = options.videoElem;
+        // whether media is ready
+        this.mediaReady = false;
+        // blob results
+        this.videoBlob = null;
+        this.audioBlob = null;
+        // stream
+        this.stream = null;
+        // video
+        this.whammy = null;
+        this.lastFrameTime = null;
+        this.lastVideoFrame = null;
+        // audio
+        this.audioRecorder = null;
+
+        navigator.getUserMedia(this.options.enable || defaults.enable,
+                               this.setMedia.bind(this),
+                               this.onError.bind(this));
+    }
+
+    RecordRTC.prototype = {
+        constructor: RecordRTC,
+        // set user media
+        setMedia: function(mediaStream) {
+            // flag
+            this.mediaReady = true;
+            // set media stream and audio stream
+            this.stream = mediaStream;
+            this.audioStream = new MediaStream(mediaStream.getAudioTracks());
+            // output to video elem
+            this.videoElem.src = URL.createObjectURL(mediaStream);
+        },
+        // draw video frame
+        drawVideoFrame: function(time) {
+            this.lastVideoFrame = requestAnimationFrame(this.drawVideoFrame.bind(this));
+
+            if (!this.lastFrameTime) {
+                this.lastFrameTime = time;
+            }
+
+            // ~10 fps
+            if (time - this.lastFrameTime < 90) return ;
+
+            this.context.drawImage(this.videoElem,
+                               0, 0, this.v_width, this.v_height,
+                               0, 0, this.c_width, this.c_height);
+
+            this.whammy.add(this.canvas);
+
+            this.lastFrameTime = time;
+        },
+        // start video record
+        startVideo: function() {
+            console.log('started recording video frames');
+
+            // set canvas width, height
+            this.c_width = this.options.canvas_width || defaults.canvas_width;
+            this.c_height = this.options.canvas_height || defaults.canvas_height;
+            // set video width, height
+            this.v_width = this.options.video_width || this.videoElem.offsetWidth;
+            this.v_height = this.options.video_height || this.videoElem.offsetHeight;
+
+            // TODO select the min width/height btw canvas and videoElem
+
+            this.canvas.width = this.c_width;
+            this.canvas.height = this.c_height;
+            this.videoElem.width = this.v_width;
+            this.videoElem.height = this.v_height;
+
+            this.whammy = new Whammy.Video(this.options.video_fps || defaults.video_fps, 0.6);
+
+            this.lastVideoFrame = requestAnimationFrame(this.drawVideoFrame.bind(this));
+        },
+        // stop video record
+        stopVideo: function(callback) {
+            console.log('stopped recording video frames');
+
+            if (this.lastVideoFrame) {
+                cancelAnimationFrame(this.lastVideoFrame);
+            }
+
+            // call whammy compile
+            if (this.whammy) {
+                this.onVideoReady(this.whammy.compile());
+            }
+        },
+        // start audio record
+        startAudio: function() {
+            console.log('started recording audio frames');
+
+            var self = this,
+                onDataReady = {
+                    ondataavailable: self.onAudioReady.bind(self)
+                };
+
+            this.audioRecorder = new StereoAudioRecorder(this.stream, onDataReady);
+
+            this.audioRecorder.record();
+        },
+        // stop audio record
+        stopAudio: function(callback) {
+            if (!this.audioRecorder) { return ; }
+
+            console.info('stopped recording audio frames');
+
+            this.audioRecorder.stop();
+        },
+        // start record all
+        start: function() {
+            if (!this.videoElem) { throw "No Video Element Found!"; }
+            if (!this.mediaReady) { throw "Media is not ready!"; }
+
+            if (this.options.enable) {
+                this.options.enable.video && this.startVideo();
+            } else if (defaults.enable) {
+                defaults.enable.video && this.startVideo();
+            }
+
+            if (this.options.enable) {
+                this.options.enable.audio && this.startAudio();
+            } else if (defaults.enable) {
+                defaults.enable.audio && this.startAudio();
+            }
+        },
+        // stop record all
+        stop: function() {
+            if (this.options.enable) {
+                this.options.enable.video && this.stopVideo();
+            } else if (defaults.enable) {
+                defaults.enable.video && this.stopVideo();
+            }
+
+            if (this.options.enable) {
+                this.options.enable.audio && this.stopAudio();
+            } else if (defaults.enable) {
+                defaults.enable.audio && this.stopAudio();
+            }
+        },
+        // on video ready
+        onVideoReady: function(callback) {
+            console.log('on video ready');
+
+            if (isFunction(callback)) {
+                this.onVideoCallback = callback;
+
+                if (this.videoBlob) {
+                    callback(this.videoBlob);
+                }
+            } else {
+                this.videoBlob = callback;
+
+                if (this.onVideoCallback) {
+                    this.onVideoCallback(callback);
+                }
+            }
+        },
+        // on audio ready
+        onAudioReady: function(callback) {
+            console.log('on audio ready');
+
+            if (isFunction(callback)) {
+                this.onAudioCallback = callback;
+
+                if (this.audioBlob) {
+                    callback(this.audioBlob);
+                }
+            } else {
+                this.audioBlob = callback;
+
+                if (this.onAudioCallback) {
+                    this.onAudioCallback(callback);
+                }
+            }
+        },
+        // on error
+        onError: function(err) {
+            this.mediaReady = false;
+            console.log("Failed due to " + err);
+        }
+    };
+
+    function isFunction(f) {
+        return Object.prototype.toString.call(f) === "[object Function]";
+    }
+
+    window.RecordRTC = RecordRTC;
+
+})();
