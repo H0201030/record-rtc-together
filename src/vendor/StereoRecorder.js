@@ -1,38 +1,3 @@
-// Muaz Khan     - https://github.com/muaz-khan 
-// neizerth      - https://github.com/neizerth
-// MIT License   - https://www.webrtc-experiment.com/licence/
-// Documentation - https://github.com/streamproc/MediaStreamRecorder
-// ==========================================================
-// StereoRecorder.js
-
-function StereoRecorder(mediaStream) {
-    // void start(optional long timeSlice)
-    // timestamp to fire "ondataavailable"
-    this.start = function(timeSlice) {
-        timeSlice = timeSlice || 1000;
-
-        mediaRecorder = new StereoAudioRecorder(mediaStream, this);
-
-        (function looper() {
-            mediaRecorder.record();
-
-            setTimeout(function() {
-                mediaRecorder.stop();
-                looper();
-            }, timeSlice);
-        })();
-    };
-
-    this.stop = function() {
-        if (mediaRecorder) mediaRecorder.stop();
-    };
-
-    this.ondataavailable = function() {};
-
-    // Reference to "StereoAudioRecorder" object
-    var mediaRecorder;
-}
-
 // source code from: http://typedarray.org/wp-content/projects/WebAudioRecorder/script.js
 function StereoAudioRecorder(mediaStream, root) {
     // variables
