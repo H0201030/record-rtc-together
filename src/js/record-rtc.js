@@ -31,8 +31,6 @@
         this.options = options;
         // elem
         this.videoElem = options.videoElem;
-        // whether media is ready
-        this.mediaReady = false;
         // blob results
         this.videoBlob = null;
         this.audioBlob = null;
@@ -44,21 +42,19 @@
         this.lastVideoFrame = null;
         // audio
         this.audioRecorder = null;
-
-        navigator.getUserMedia(this.options.enable || defaults.enable,
-                               this.setMedia.bind(this),
-                               this.onError.bind(this));
     }
 
     RecordRTC.prototype = {
         constructor: RecordRTC,
+        // get user media
+        getMedia: function(onSucceed, onError) {
+            navigator.getUserMedia(this.options.enable || defaults.enable,
+                                   onSucceed.bind(this), onError.bind(this));
+        },
         // set user media
         setMedia: function(mediaStream) {
-            // flag
-            this.mediaReady = true;
             // set media stream and audio stream
             this.stream = mediaStream;
-            this.audioStream = new MediaStream(mediaStream.getAudioTracks());
             // output to video elem
             this.videoElem.src = URL.createObjectURL(mediaStream);
         },
@@ -140,32 +136,24 @@
         // start record all
         start: function() {
             if (!this.videoElem) { throw "No Video Element Found!"; }
-            if (!this.mediaReady) { throw "Media is not ready!"; }
+            if (!this.stream) { throw "Media is not ready!"; }
 
             if (this.options.enable) {
-                this.options.enable.video && this.startVideo();
+                if (this.options.enable.audio) this.startAudio();
+                if (this.options.enable.video) this.startVideo();
             } else if (defaults.enable) {
-                defaults.enable.video && this.startVideo();
-            }
-
-            if (this.options.enable) {
-                this.options.enable.audio && this.startAudio();
-            } else if (defaults.enable) {
-                defaults.enable.audio && this.startAudio();
+                if (defaults.enable.audio) this.startAudio();
+                if (defaults.enable.video) this.startVideo();
             }
         },
         // stop record all
         stop: function() {
             if (this.options.enable) {
-                this.options.enable.video && this.stopVideo();
+                if (this.options.enable.audio) this.stopAudio();
+                if (this.options.enable.video) this.stopVideo();
             } else if (defaults.enable) {
-                defaults.enable.video && this.stopVideo();
-            }
-
-            if (this.options.enable) {
-                this.options.enable.audio && this.stopAudio();
-            } else if (defaults.enable) {
-                defaults.enable.audio && this.stopAudio();
+                if (defaults.enable.audio) this.stopAudio();
+                if (defaults.enable.video) this.stopVideo();
             }
         },
         // on video ready
@@ -203,11 +191,6 @@
                     this.onAudioCallback(callback);
                 }
             }
-        },
-        // on error
-        onError: function(err) {
-            this.mediaReady = false;
-            console.log("Failed due to " + err);
         }
     };
 

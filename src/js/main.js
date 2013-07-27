@@ -1,11 +1,14 @@
 (function() {
 
-    var recorder = new RecordRTC({
-        enable: {
-            video: true,
-            audio: true
-        },
-        videoElem: document.getElementById("client-video")
+    var constraints = { video: true, audio: true },
+        recorder = new RecordRTC({
+            enable: constraints,
+            videoElem: document.getElementById("client-video")
+        });
+
+    // get user media
+    recorder.getMedia(recorder.setMedia, function() {
+        console.log("get user media failed!");
     });
 
     recorder.onVideoReady(function(blob) {
