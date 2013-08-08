@@ -1,5 +1,6 @@
 // Wang Zhuochun
-// 20/Jul/2013 10:04 PM
+// https://github.com/H0201030/record-rtc-together
+// 08/Aug/2013 06:08 PM
 
 (function() {
 
@@ -81,6 +82,9 @@
         startVideo: function() {
             console.log('started recording video frames');
 
+            // reset video blob
+            this.videoBlob = null;
+
             // set canvas width, height
             this.c_width = this.options.canvas_width || defaults.canvas_width;
             this.c_height = this.options.canvas_height || defaults.canvas_height;
@@ -88,7 +92,13 @@
             this.v_width = this.options.video_width || this.videoElem.offsetWidth;
             this.v_height = this.options.video_height || this.videoElem.offsetHeight;
 
-            // TODO select the min width/height btw canvas and videoElem
+            if (this.v_width < this.c_width) {
+                this.v_width = this.c_width;
+            }
+
+            if (this.v_height < this.c_height) {
+                this.v_height = this.c_height;
+            }
 
             this.canvas.width = this.c_width;
             this.canvas.height = this.c_height;
@@ -115,6 +125,9 @@
         // start audio record
         startAudio: function() {
             console.log('started recording audio frames');
+
+            // reset audio blob
+            this.audioBlob = null;
 
             var self = this,
                 onDataReady = {
@@ -149,17 +162,15 @@
         // stop record all
         stop: function() {
             if (this.options.enable) {
-                if (this.options.enable.audio) this.stopAudio();
                 if (this.options.enable.video) this.stopVideo();
+                if (this.options.enable.audio) this.stopAudio();
             } else if (defaults.enable) {
-                if (defaults.enable.audio) this.stopAudio();
                 if (defaults.enable.video) this.stopVideo();
+                if (defaults.enable.audio) this.stopAudio();
             }
         },
         // on video ready
         onVideoReady: function(callback) {
-            console.log('on video ready');
-
             if (isFunction(callback)) {
                 this.onVideoCallback = callback;
 
@@ -167,6 +178,8 @@
                     callback(this.videoBlob);
                 }
             } else {
+                console.log('on video ready');
+
                 this.videoBlob = callback;
 
                 if (this.onVideoCallback) {
@@ -176,8 +189,6 @@
         },
         // on audio ready
         onAudioReady: function(callback) {
-            console.log('on audio ready');
-
             if (isFunction(callback)) {
                 this.onAudioCallback = callback;
 
@@ -185,6 +196,8 @@
                     callback(this.audioBlob);
                 }
             } else {
+                console.log('on audio ready');
+
                 this.audioBlob = callback;
 
                 if (this.onAudioCallback) {
