@@ -1,15 +1,15 @@
 {
-  "name": "RecordRTC",
-  "description": "",
+  "name": "RecordRTC-together",
+  "description": "Record video and audio together on the web using `getUserMedia`.",
   "version": "0.0.1",
-  "homepage": "",
+  "homepage": "https://github.com/H0201030/record-rtc-together",
   "author": {
     "name": "Wang Zhuochun",
     "url": "http://www.bicrement.com"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/zhuochun/record-rtc.git"
+    "url": "https://github.com/H0201030/record-rtc-together.git"
   },
   "licenses": [
     {
