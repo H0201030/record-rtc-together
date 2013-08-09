@@ -21,7 +21,8 @@
             enable: { video: true, audio: true },
             canvas_width: 320,
             canvas_height: 240,
-            video_fps: 10
+            video_fps: 10,
+            video_quality: 0.8
         };
 
     function RecordRTC(options) {
@@ -105,7 +106,8 @@
             this.videoElem.width = this.v_width;
             this.videoElem.height = this.v_height;
 
-            this.whammy = new Whammy.Video(this.options.video_fps || defaults.video_fps, 0.6);
+            this.whammy = new Whammy.Video(this.options.video_fps || defaults.video_fps, 
+                                           this.options.video_quality || defaults.video_quality);
 
             this.lastVideoFrame = requestAnimationFrame(this.drawVideoFrame.bind(this));
         },
