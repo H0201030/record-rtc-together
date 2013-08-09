@@ -1,7 +1,7 @@
 {
   "name": "RecordRTC-together",
-  "description": "Record video and audio together on the web using `getUserMedia`.",
-  "version": "0.0.1",
+  "description": "Record video and audio together or individually on the web using getUserMedia.",
+  "version": "0.0.2",
   "homepage": "https://github.com/H0201030/record-rtc-together",
   "author": {
     "name": "Wang Zhuochun",
@@ -14,7 +14,7 @@
   "licenses": [
     {
       "type": "MIT",
-      "url": ""
+      "url": "https://raw.github.com/zhuochun/cors-planner/master/LICENSE"
     }
   ],
   "devDependencies": {
