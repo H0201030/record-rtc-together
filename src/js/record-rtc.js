@@ -44,6 +44,9 @@
         this.lastVideoFrame = null;
         // audio
         this.audioRecorder = null;
+        // recording flags
+        this.videoStarted = false;
+        this.audioStarted = false;
     }
 
     RecordRTC.prototype = {
@@ -59,6 +62,8 @@
             this.stream = mediaStream;
             // output to video elem
             this.videoElem.src = URL.createObjectURL(mediaStream);
+            // init recording
+            this.init();
         },
         // draw video frame
         drawVideoFrame: function(time) {
@@ -79,9 +84,13 @@
 
             this.lastFrameTime = time;
         },
+        // init video record
+        initVideo: function() {
+            console.log('init recording video frames');
+        },
         // start video record
         startVideo: function() {
-            console.log('started recording video frames');
+            console.log('start recording video frames');
 
             // reset video blob
             this.videoBlob = null;
@@ -106,14 +115,21 @@
             this.videoElem.width = this.v_width;
             this.videoElem.height = this.v_height;
 
-            this.whammy = new Whammy.Video(this.options.video_fps || defaults.video_fps, 
+            // whammy library to record canvas
+            this.whammy = new Whammy.Video(this.options.video_fps || defaults.video_fps,
                                            this.options.video_quality || defaults.video_quality);
+
+            this.videoStarted = true;
 
             this.lastVideoFrame = requestAnimationFrame(this.drawVideoFrame.bind(this));
         },
         // stop video record
         stopVideo: function(callback) {
+            if (!this.videoStarted) { return ; }
+
             console.log('stopped recording video frames');
+
+            this.videoStarted = false;
 
             if (this.lastVideoFrame) {
                 cancelAnimationFrame(this.lastVideoFrame);
@@ -124,52 +140,54 @@
                 this.onVideoReady(this.whammy.compile());
             }
         },
-        // start audio record
-        startAudio: function() {
-            console.log('started recording audio frames');
-
-            // reset audio blob
-            this.audioBlob = null;
+        // init audio record
+        initAudio: function() {
+            console.log('init recording audio frames');
 
             var self = this,
                 onDataReady = {
                     ondataavailable: self.onAudioReady.bind(self)
                 };
 
-            this.audioRecorder = new StereoAudioRecorder(this.stream, onDataReady);
+            this.audioRecorder = new StereoAudioRecorder(self.stream, onDataReady);
+        },
+        // start audio record
+        startAudio: function() {
+            console.log('start recording audio frames');
+
+            // reset audio blob
+            this.audioBlob = null;
+
+            this.initAudio(); // do it again
+
+            this.audioStarted = true;
 
             this.audioRecorder.record();
         },
         // stop audio record
         stopAudio: function(callback) {
-            if (!this.audioRecorder) { return ; }
+            if (!this.audioStarted) { return ; }
 
             console.info('stopped recording audio frames');
 
+            this.audioStarted = false;
+
             this.audioRecorder.stop();
         },
-        // start record all
-        start: function() {
+        // init recorder
+        init: function() {
             if (!this.videoElem) { throw "No Video Element Found!"; }
             if (!this.stream) { throw "Media is not ready!"; }
 
-            if (this.options.enable) {
-                if (this.options.enable.audio) this.startAudio();
-                if (this.options.enable.video) this.startVideo();
-            } else if (defaults.enable) {
-                if (defaults.enable.audio) this.startAudio();
-                if (defaults.enable.video) this.startVideo();
-            }
+            batchActions(this.options, this, "init");
+        },
+        // start record all
+        start: function() {
+            batchActions(this.options, this, "start");
         },
         // stop record all
         stop: function() {
-            if (this.options.enable) {
-                if (this.options.enable.video) this.stopVideo();
-                if (this.options.enable.audio) this.stopAudio();
-            } else if (defaults.enable) {
-                if (defaults.enable.video) this.stopVideo();
-                if (defaults.enable.audio) this.stopAudio();
-            }
+            batchActions(this.options, this, "stop");
         },
         // on video ready
         onVideoReady: function(callback) {
@@ -208,6 +226,16 @@
             }
         }
     };
+
+    function batchActions(options, self, action) {
+        if (options.enable) {
+            if (options.enable.audio) self[action + "Audio"]();
+            if (options.enable.video) self[action + "Video"]();
+        } else if (defaults.enable) {
+            if (defaults.enable.audio) self[action + "Audio"]();
+            if (defaults.enable.video) self[action + "Video"]();
+        }
+    }
 
     function isFunction(f) {
         return Object.prototype.toString.call(f) === "[object Function]";
