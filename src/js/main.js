@@ -3,7 +3,11 @@
     var constraints = { video: true, audio: true },
         recorder = new RecordRTC({
             enable: constraints,
-            videoElem: document.getElementById("client-video")
+            videoElem: document.getElementById("client-video"),
+            video_width: 320,
+            video_height: 240,
+            canvas_width: 320,
+            canvas_height: 240
         });
 
     // get user media

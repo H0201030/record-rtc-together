@@ -620,6 +620,8 @@ function StereoAudioRecorder(mediaStream, root) {
     // defaults
         defaults = {
             enable: { video: true, audio: true },
+            video_width: 640,
+            video_height: 480,
             canvas_width: 320,
             canvas_height: 240,
             video_fps: 10,
@@ -677,9 +679,7 @@ function StereoAudioRecorder(mediaStream, root) {
             // ~10 fps
             if (time - this.lastFrameTime < 90) return ;
 
-            this.context.drawImage(this.videoElem,
-                               0, 0, this.v_width, this.v_height,
-                               0, 0, this.c_width, this.c_height);
+            this.context.drawImage(this.videoElem, 0, 0, this.c_width, this.c_height);
 
             this.whammy.add(this.canvas);
 
@@ -688,20 +688,15 @@ function StereoAudioRecorder(mediaStream, root) {
         // init video record
         initVideo: function() {
             console.log('init recording video frames');
-        },
-        // start video record
-        startVideo: function() {
-            console.log('start recording video frames');
-
-            // reset video blob
-            this.videoBlob = null;
 
             // set canvas width, height
             this.c_width = this.options.canvas_width || defaults.canvas_width;
             this.c_height = this.options.canvas_height || defaults.canvas_height;
             // set video width, height
-            this.v_width = this.options.video_width || this.videoElem.offsetWidth;
-            this.v_height = this.options.video_height || this.videoElem.offsetHeight;
+            this.v_width = this.options.video_width ||
+                           this.videoElem.offsetWidth || defaults.video_width;
+            this.v_height = this.options.video_height ||
+                            this.videoElem.offsetHeight || defaults.video_height;
 
             if (this.v_width < this.c_width) {
                 this.v_width = this.c_width;
@@ -715,6 +710,13 @@ function StereoAudioRecorder(mediaStream, root) {
             this.canvas.height = this.c_height;
             this.videoElem.width = this.v_width;
             this.videoElem.height = this.v_height;
+        },
+        // start video record
+        startVideo: function() {
+            console.log('start recording video frames');
+
+            // reset video blob
+            this.videoBlob = null;
 
             // whammy library to record canvas
             this.whammy = new Whammy.Video(this.options.video_fps || defaults.video_fps,
