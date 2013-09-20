@@ -614,8 +614,7 @@ function StereoAudioRecorder(mediaStream, root) {
         requestAnimationFrame = win.webkitRequestAnimationFrame || win.mozRequestAnimationFrame,
         cancelAnimationFrame = win.webkitCancelAnimationFrame || win.mozCancelAnimationFrame,
         URL = win.URL || win.webkitURL,
-        MediaStream = win.webkitMediaStream,
-        AudioContext = win.webkitAudioContext || window.mozAudioContext,
+        AudioContext = win.AudioContext || win.webkitAudioContext;
 
     // defaults
         defaults = {
@@ -651,6 +650,12 @@ function StereoAudioRecorder(mediaStream, root) {
         this.videoStarted = false;
         this.audioStarted = false;
     }
+
+    // get support information
+    RecordRTC.support = {
+        "video": !!navigator.getUserMedia,
+        "audio": !!AudioContext
+    };
 
     RecordRTC.prototype = {
         constructor: RecordRTC,
@@ -713,6 +718,11 @@ function StereoAudioRecorder(mediaStream, root) {
         },
         // start video record
         startVideo: function() {
+            if (!RecordRTC.support.video) {
+                console.log('record video is not supported');
+                return ;
+            }
+
             console.log('start recording video frames');
 
             // reset video blob
@@ -756,6 +766,11 @@ function StereoAudioRecorder(mediaStream, root) {
         },
         // start audio record
         startAudio: function() {
+            if (!RecordRTC.support.audio) {
+                console.log('record audio is not supported');
+                return ;
+            }
+
             console.log('start recording audio frames');
 
             // reset audio blob

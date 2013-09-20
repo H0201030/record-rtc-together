@@ -1,7 +1,7 @@
 {
   "name": "RecordRTC-together",
   "description": "Record video and audio together or individually on the web using getUserMedia.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "homepage": "https://github.com/H0201030/record-rtc-together",
   "author": {
     "name": "Wang Zhuochun",
