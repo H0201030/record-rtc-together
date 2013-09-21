@@ -692,6 +692,8 @@ function StereoAudioRecorder(mediaStream, root) {
         },
         // init video record
         initVideo: function() {
+            if (!RecordRTC.support.video) { return ; }
+
             console.log('init recording video frames');
 
             // set canvas width, height
@@ -755,6 +757,8 @@ function StereoAudioRecorder(mediaStream, root) {
         },
         // init audio record
         initAudio: function() {
+            if (!RecordRTC.support.audio) { return ; }
+
             console.log('init recording audio frames');
 
             var self = this,
