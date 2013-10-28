@@ -585,7 +585,14 @@ function StereoAudioRecorder(mediaStream, root) {
     Lower values for buffer size will result in a lower (better) latency. 
     Higher values will be necessary to avoid audio breakup and glitches */
     var bufferSize = 2048;
-    recorder = context.createJavaScriptNode(bufferSize, 2, 2);
+
+    if (context.createJavaScriptNode) {
+        recorder = context.createJavaScriptNode(bufferSize, 2, 2);
+    } else if (context.createScriptProcessor) {
+        recorder = context.createScriptProcessor(bufferSize, 2, 2);
+    } else {
+        throw "No audio support";
+    }
 
     recorder.onaudioprocess = function(e) {
         if (!recording) return;
@@ -596,6 +603,7 @@ function StereoAudioRecorder(mediaStream, root) {
         rightchannel.push(new Float32Array(right));
         recordingLength += bufferSize;
     }; // we connect the recorder
+
     volume.connect(recorder);
     recorder.connect(context.destination);
 }
@@ -652,9 +660,30 @@ function StereoAudioRecorder(mediaStream, root) {
     }
 
     // get support information
+    var supportWebP;
+    (function WebPCheck(callback) {
+        var webp = "data:image/webp;base64,UklGRjIAAABXRUJQVlA4ICYAAACyAgCdASoCAAEALmk0mk0iIiIiIgBoSygABc6zbAAA/v56QAAAAA==",
+            img  = new Image();
+
+        img.addEventListener('load', function() {
+            if (this.width === 2 && this.height === 1) {
+                callback(true);
+            } else {
+                callback(false);
+            }
+        });
+
+        img.addEventListener('error', function() {
+            callback(false);
+        });
+
+        img.src = webp;
+    })(function(result) { supportWebP = result; });
+
     RecordRTC.support = {
         "video": !!navigator.getUserMedia,
-        "audio": !!AudioContext
+        "audio": !!AudioContext,
+        "webp" : function() { return supportWebP; }
     };
 
     RecordRTC.prototype = {
