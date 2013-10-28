@@ -51,9 +51,30 @@
     }
 
     // get support information
+    var supportWebP;
+    (function WebPCheck(callback) {
+        var webp = "data:image/webp;base64,UklGRjIAAABXRUJQVlA4ICYAAACyAgCdASoCAAEALmk0mk0iIiIiIgBoSygABc6zbAAA/v56QAAAAA==",
+            img  = new Image();
+
+        img.addEventListener('load', function() {
+            if (this.width === 2 && this.height === 1) {
+                callback(true);
+            } else {
+                callback(false);
+            }
+        });
+
+        img.addEventListener('error', function() {
+            callback(false);
+        });
+
+        img.src = webp;
+    })(function(result) { supportWebP = result; });
+
     RecordRTC.support = {
         "video": !!navigator.getUserMedia,
-        "audio": !!AudioContext
+        "audio": !!AudioContext,
+        "webp" : function() { return supportWebP; }
     };
 
     RecordRTC.prototype = {
