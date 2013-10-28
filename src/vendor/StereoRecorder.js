@@ -117,7 +117,14 @@ function StereoAudioRecorder(mediaStream, root) {
     Lower values for buffer size will result in a lower (better) latency. 
     Higher values will be necessary to avoid audio breakup and glitches */
     var bufferSize = 2048;
-    recorder = context.createJavaScriptNode(bufferSize, 2, 2);
+
+    if (context.createJavaScriptNode) {
+        recorder = context.createJavaScriptNode(bufferSize, 2, 2);
+    } else if (context.createScriptProcessor) {
+        recorder = context.createScriptProcessor(bufferSize, 2, 2);
+    } else {
+        throw "No audio support";
+    }
 
     recorder.onaudioprocess = function(e) {
         if (!recording) return;
@@ -128,6 +135,7 @@ function StereoAudioRecorder(mediaStream, root) {
         rightchannel.push(new Float32Array(right));
         recordingLength += bufferSize;
     }; // we connect the recorder
+
     volume.connect(recorder);
     recorder.connect(context.destination);
 }
