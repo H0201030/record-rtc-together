@@ -6,6 +6,8 @@ It creates two files individually for video (`webm`) and audio (`wav`).
 
 This is used in [MIST project](https://github.com/H0201030) to allow users record video and audio together using their webcams on Web.
 
+[Demo](http://h0201030.github.io/record-rtc-together) (Only works on Google Chrome)
+
 # Quick Start
 
 Include `dist\RecordRTC-together.min.js` in your web page.
@@ -35,7 +37,7 @@ Include `dist\RecordRTC-together.min.js` in your web page.
     recorder.stop();
 ```
 
-Demo please refer to `src\index.html` and `src\js\main.js`.
+Code for the demo please refer to `src\index.html` and `src\js\main.js`.
 
 # Issues
 
