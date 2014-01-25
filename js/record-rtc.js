@@ -1,0 +1,300 @@
+// Wang Zhuochun
+// https://github.com/H0201030/record-rtc-together
+// 08/Aug/2013 06:08 PM
+
+(function() {
+
+    navigator.getUserMedia = navigator.getUserMedia ||
+                             navigator.webkitGetUserMedia ||
+                             navigator.mozGetUserMedia ||
+                             navigator.msGetUserMedia;
+
+    var win = window,
+        requestAnimationFrame = win.webkitRequestAnimationFrame || win.mozRequestAnimationFrame,
+        cancelAnimationFrame = win.webkitCancelAnimationFrame || win.mozCancelAnimationFrame,
+        URL = win.URL || win.webkitURL,
+        AudioContext = win.AudioContext || win.webkitAudioContext;
+
+    // defaults
+        defaults = {
+            enable: { video: true, audio: true },
+            fix_mirror_effect: true,
+            video_width: 640,
+            video_height: 480,
+            canvas_width: 320,
+            canvas_height: 240,
+            video_fps: 10,
+            video_quality: 0.8
+        };
+
+    function RecordRTC(options) {
+        // canvas
+        this.canvas = document.createElement('canvas');
+        this.context = this.canvas.getContext('2d');
+        // store options
+        this.options = options;
+        // elem
+        this.videoElem = options.videoElem;
+        // blob results
+        this.videoBlob = null;
+        this.audioBlob = null;
+        // stream
+        this.stream = null;
+        // video
+        this.whammy = null;
+        this.lastFrameTime = null;
+        this.lastVideoFrame = null;
+        // audio
+        this.audioRecorder = null;
+        // recording flags
+        this.videoStarted = false;
+        this.audioStarted = false;
+    }
+
+    // get support information
+    var supportWebP;
+    (function WebPCheck(callback) {
+        var webp = "data:image/webp;base64,UklGRjIAAABXRUJQVlA4ICYAAACyAgCdASoCAAEALmk0mk0iIiIiIgBoSygABc6zbAAA/v56QAAAAA==",
+            img  = new Image();
+
+        img.addEventListener('load', function() {
+            if (this.width === 2 && this.height === 1) {
+                callback(true);
+            } else {
+                callback(false);
+            }
+        });
+
+        img.addEventListener('error', function() {
+            callback(false);
+        });
+
+        img.src = webp;
+    })(function(result) { supportWebP = result; });
+
+    RecordRTC.support = {
+        "video": !!navigator.getUserMedia,
+        "audio": !!AudioContext,
+        "webp" : function() { return supportWebP; }
+    };
+
+    RecordRTC.prototype = {
+        constructor: RecordRTC,
+        // get user media
+        getMedia: function(onSucceed, onError) {
+            navigator.getUserMedia(this.option("enable"), onSucceed.bind(this), onError.bind(this));
+        },
+        // set user media
+        setMedia: function(mediaStream) {
+            // set media stream and audio stream
+            this.stream = mediaStream;
+            // output to video elem
+            this.videoElem.src = URL.createObjectURL(mediaStream);
+            // init recording
+            this.init();
+        },
+        // get option
+        option: function(key) {
+            if (this.options.hasOwnProperty(key)) {
+                return this.options[key];
+            } else {
+                return defaults[key];
+            }
+        },
+        // draw video frame
+        drawVideoFrame: function(time) {
+            this.lastVideoFrame = requestAnimationFrame(this.drawVideoFrame.bind(this));
+
+            if (!this.lastFrameTime) {
+                this.lastFrameTime = time;
+            }
+
+            // ~10 fps
+            if (time - this.lastFrameTime < 90) return ;
+
+            this.context.scale(this.c_scaleH, this.c_scaleV);
+            this.context.drawImage(this.videoElem, this.c_posX, this.c_posY, this.c_width, this.c_height);
+
+            this.whammy.add(this.canvas);
+
+            this.lastFrameTime = time;
+        },
+        // init video record
+        initVideo: function() {
+            if (!RecordRTC.support.video) { return ; }
+
+            console.log('init recording video frames');
+
+            // set canvas width, height
+            this.c_width = this.option("canvas_width");
+            this.c_height = this.option("canvas_height");
+            // set canvas scale
+            this.c_scaleH = this.option("fix_mirror_effect") ? -1 : 1;
+            this.c_scaleV = 1;
+            // set canvas draw position (x,y)
+            this.c_posX = this.option("fix_mirror_effect") ? this.c_width * -1 : 0;
+            this.c_posY = 0;
+
+            // set video width, height
+            this.v_width = this.options.video_width || this.videoElem.offsetWidth || defaults.video_width;
+            this.v_height = this.options.video_height || this.videoElem.offsetHeight || defaults.video_height;
+
+            if (this.v_width < this.c_width) {
+                this.v_width = this.c_width;
+            }
+
+            if (this.v_height < this.c_height) {
+                this.v_height = this.c_height;
+            }
+
+            this.canvas.width = this.c_width;
+            this.canvas.height = this.c_height;
+            this.videoElem.width = this.v_width;
+            this.videoElem.height = this.v_height;
+
+            if (this.option("fix_mirror_effect")) {
+                this.videoElem.style["-webkit-transform"] = "scale(-1, 1)";
+            }
+        },
+        // start video record
+        startVideo: function() {
+            if (!RecordRTC.support.video) {
+                console.log('record video is not supported');
+                return ;
+            }
+
+            console.log('start recording video frames');
+
+            // reset video blob
+            this.videoBlob = null;
+
+            // whammy library to record canvas
+            this.whammy = new Whammy.Video(this.option("video_fps"), this.option("video_quality"));
+
+            this.videoStarted = true;
+
+            this.lastVideoFrame = requestAnimationFrame(this.drawVideoFrame.bind(this));
+        },
+        // stop video record
+        stopVideo: function(callback) {
+            if (!this.videoStarted) { return ; }
+
+            console.log('stopped recording video frames');
+
+            this.videoStarted = false;
+
+            if (this.lastVideoFrame) {
+                cancelAnimationFrame(this.lastVideoFrame);
+            }
+
+            // call whammy compile
+            if (this.whammy) {
+                this.onVideoReady(this.whammy.compile());
+            }
+        },
+        // init audio record
+        initAudio: function() {
+            if (!RecordRTC.support.audio) { return ; }
+
+            console.log('init recording audio frames');
+
+            var self = this,
+                onDataReady = {
+                    ondataavailable: self.onAudioReady.bind(self)
+                };
+
+            this.audioRecorder = new StereoAudioRecorder(self.stream, onDataReady);
+        },
+        // start audio record
+        startAudio: function() {
+            if (!RecordRTC.support.audio) {
+                console.log('record audio is not supported');
+                return ;
+            }
+
+            console.log('start recording audio frames');
+
+            // reset audio blob
+            this.audioBlob = null;
+
+            this.initAudio(); // do it again
+
+            this.audioStarted = true;
+
+            this.audioRecorder.record();
+        },
+        // stop audio record
+        stopAudio: function(callback) {
+            if (!this.audioStarted) { return ; }
+
+            console.info('stopped recording audio frames');
+
+            this.audioStarted = false;
+
+            this.audioRecorder.stop();
+        },
+        // init recorder
+        init: function() {
+            if (!this.videoElem) { throw "No Video Element Found!"; }
+            if (!this.stream) { throw "Media is not ready!"; }
+
+            batchActions(this.option("enable"), this, "init");
+        },
+        // start record all
+        start: function() {
+            batchActions(this.option("enable"), this, "start");
+        },
+        // stop record all
+        stop: function() {
+            batchActions(this.option("enable"), this, "stop");
+        },
+        // on video ready
+        onVideoReady: function(callback) {
+            if (isFunction(callback)) {
+                this.onVideoCallback = callback;
+
+                if (this.videoBlob) {
+                    callback(this.videoBlob);
+                }
+            } else {
+                console.log('on video ready');
+
+                this.videoBlob = callback;
+
+                if (this.onVideoCallback) {
+                    this.onVideoCallback(callback);
+                }
+            }
+        },
+        // on audio ready
+        onAudioReady: function(callback) {
+            if (isFunction(callback)) {
+                this.onAudioCallback = callback;
+
+                if (this.audioBlob) {
+                    callback(this.audioBlob);
+                }
+            } else {
+                console.log('on audio ready');
+
+                this.audioBlob = callback;
+
+                if (this.onAudioCallback) {
+                    this.onAudioCallback(callback);
+                }
+            }
+        }
+    };
+
+    function batchActions(enable, self, action) {
+        if (enable.audio) self[action + "Audio"]();
+        if (enable.video) self[action + "Video"]();
+    }
+
+    function isFunction(f) {
+        return Object.prototype.toString.call(f) === "[object Function]";
+    }
+
+    window.RecordRTC = RecordRTC;
+
+})();
