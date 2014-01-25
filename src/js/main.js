@@ -23,18 +23,29 @@
         attachLink(blob, "audio");
     });
 
-    document.getElementById("start-record").addEventListener("click", function() {
+    var startBtn = document.getElementById("start-record"),
+        stopBtn = document.getElementById("stop-record"),
+        result = document.getElementById('result'),
+        download = document.getElementById('download');
+
+    startBtn.addEventListener("click", function() {
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+
         recorder.start();
     });
 
-    document.getElementById("stop-record").addEventListener("click", function() {
+    stopBtn.addEventListener("click", function() {
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+
         recorder.stop();
     });
 
-    function attachLink(blob, str) {
+    function attachLink(blob, str, dl) {
         var a = document.createElement('a');
             a.target = '_blank';
-            a.innerHTML = 'Open Recorded ' + str;
+            a.innerHTML = (dl ? 'Download ' : 'Open ') + str;
 
         var reader = new FileReader();
         reader.onload = function(e) {
@@ -42,9 +53,12 @@
         };
         reader.readAsDataURL(blob);
 
-        result.appendChild(a);
+        if (dl) {
+            a.download = str + (str === 'video' ? '.webm' : ".wav");
+            download.appendChild(a);
+        } else {
+            result.appendChild(a);
+        }
     }
-
-    var result = document.getElementById('result');
 
 })();
