@@ -18,6 +18,7 @@
     // defaults
         defaults = {
             enable: { video: true, audio: true },
+            fix_mirror_effect: true,
             video_width: 640,
             video_height: 480,
             canvas_width: 320,
@@ -81,8 +82,7 @@
         constructor: RecordRTC,
         // get user media
         getMedia: function(onSucceed, onError) {
-            navigator.getUserMedia(this.options.enable || defaults.enable,
-                                   onSucceed.bind(this), onError.bind(this));
+            navigator.getUserMedia(this.option("enable"), onSucceed.bind(this), onError.bind(this));
         },
         // set user media
         setMedia: function(mediaStream) {
@@ -92,6 +92,14 @@
             this.videoElem.src = URL.createObjectURL(mediaStream);
             // init recording
             this.init();
+        },
+        // get option
+        option: function(key) {
+            if (this.options.hasOwnProperty(key)) {
+                return this.options[key];
+            } else {
+                return defaults[key];
+            }
         },
         // draw video frame
         drawVideoFrame: function(time) {
@@ -104,7 +112,8 @@
             // ~10 fps
             if (time - this.lastFrameTime < 90) return ;
 
-            this.context.drawImage(this.videoElem, 0, 0, this.c_width, this.c_height);
+            this.context.scale(this.c_scaleH, this.c_scaleV);
+            this.context.drawImage(this.videoElem, this.c_posX, this.c_posY, this.c_width, this.c_height);
 
             this.whammy.add(this.canvas);
 
@@ -117,13 +126,18 @@
             console.log('init recording video frames');
 
             // set canvas width, height
-            this.c_width = this.options.canvas_width || defaults.canvas_width;
-            this.c_height = this.options.canvas_height || defaults.canvas_height;
+            this.c_width = this.option("canvas_width");
+            this.c_height = this.option("canvas_height");
+            // set canvas scale
+            this.c_scaleH = this.option("fix_mirror_effect") ? -1 : 1;
+            this.c_scaleV = 1;
+            // set canvas draw position (x,y)
+            this.c_posX = this.option("fix_mirror_effect") ? this.c_width * -1 : 0;
+            this.c_posY = 0;
+
             // set video width, height
-            this.v_width = this.options.video_width ||
-                           this.videoElem.offsetWidth || defaults.video_width;
-            this.v_height = this.options.video_height ||
-                            this.videoElem.offsetHeight || defaults.video_height;
+            this.v_width = this.options.video_width || this.videoElem.offsetWidth || defaults.video_width;
+            this.v_height = this.options.video_height || this.videoElem.offsetHeight || defaults.video_height;
 
             if (this.v_width < this.c_width) {
                 this.v_width = this.c_width;
@@ -137,6 +151,10 @@
             this.canvas.height = this.c_height;
             this.videoElem.width = this.v_width;
             this.videoElem.height = this.v_height;
+
+            if (this.option("fix_mirror_effect")) {
+                this.videoElem.style["-webkit-transform"] = "scale(-1, 1)";
+            }
         },
         // start video record
         startVideo: function() {
@@ -151,8 +169,7 @@
             this.videoBlob = null;
 
             // whammy library to record canvas
-            this.whammy = new Whammy.Video(this.options.video_fps || defaults.video_fps,
-                                           this.options.video_quality || defaults.video_quality);
+            this.whammy = new Whammy.Video(this.option("video_fps"), this.option("video_quality"));
 
             this.videoStarted = true;
 
@@ -221,15 +238,15 @@
             if (!this.videoElem) { throw "No Video Element Found!"; }
             if (!this.stream) { throw "Media is not ready!"; }
 
-            batchActions(this.options, this, "init");
+            batchActions(this.option("enable"), this, "init");
         },
         // start record all
         start: function() {
-            batchActions(this.options, this, "start");
+            batchActions(this.option("enable"), this, "start");
         },
         // stop record all
         stop: function() {
-            batchActions(this.options, this, "stop");
+            batchActions(this.option("enable"), this, "stop");
         },
         // on video ready
         onVideoReady: function(callback) {
@@ -269,14 +286,9 @@
         }
     };
 
-    function batchActions(options, self, action) {
-        if (options.enable) {
-            if (options.enable.audio) self[action + "Audio"]();
-            if (options.enable.video) self[action + "Video"]();
-        } else if (defaults.enable) {
-            if (defaults.enable.audio) self[action + "Audio"]();
-            if (defaults.enable.video) self[action + "Video"]();
-        }
+    function batchActions(enable, self, action) {
+        if (enable.audio) self[action + "Audio"]();
+        if (enable.video) self[action + "Video"]();
     }
 
     function isFunction(f) {
