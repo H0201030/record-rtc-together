@@ -2,11 +2,11 @@
 
 Record video and audio together or individually on the web using `getUserMedia`.
 
-It creates two files individually for video (`webm`) and audio (`wav`).
+**[Online Demo](http://h0201030.github.io/record-rtc-together) (Only works on Google Chrome)**
+
+It creates two files individually for video (`webm` at 10 fps) and audio (`wav`).
 
 This is used in [MIST project](https://github.com/H0201030) to allow users record video and audio together using their webcams on Web.
-
-[Demo](http://h0201030.github.io/record-rtc-together) (Only works on Google Chrome)
 
 # Quick Start
 
@@ -38,6 +38,12 @@ Include `dist\RecordRTC-together.min.js` in your web page.
 ```
 
 Code for the demo please refer to `src\index.html` and `src\js\main.js`.
+
+To merge video and audio, you can do it with `ffmpeg` on server:
+
+```bash
+$ ffmpeg -i video.webm -i audio.wav merged.mp4
+```
 
 # Issues
 
