@@ -637,13 +637,13 @@ function StereoAudioRecorder(mediaStream, root) {
         };
 
     function RecordRTC(options) {
-        // canvas
-        this.canvas = document.createElement('canvas');
-        this.context = this.canvas.getContext('2d');
         // store options
         this.options = options;
-        // elem
+        // video elem
         this.videoElem = options.videoElem;
+        // canvas
+        this.canvas = options.canvasElem || document.createElement('canvas');
+        this.context = this.canvas.getContext('2d');
         // blob results
         this.videoBlob = null;
         this.audioBlob = null;
